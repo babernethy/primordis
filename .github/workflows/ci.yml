@@ -9,6 +9,12 @@ on:
     branches: [main]
   pull_request:
 
+# A force-push or rapid re-push cancels the superseded run instead of
+# stacking 20-minute macOS jobs behind it.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   analyze-test:
     # macOS runner since TASK-801: minigpu's native-asset hook MUST run
@@ -28,6 +34,12 @@ jobs:
         with:
           path: .dart_tool/hooks_runner
           key: hooks-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pubspec.lock') }}
+          # Any pubspec.lock change (new dep, resolution shift) still restores
+          # the previous Dawn build; hooks_runner re-runs the hook only if
+          # minigpu's own inputs changed. Without this, every lock change
+          # repays the full ~20-minute cold Dawn compile.
+          restore-keys: |
+            hooks-${{ runner.os }}-${{ runner.arch }}-
       - run: flutter --version
       - run: flutter pub get
       - run: dart run build_runner build --delete-conflicting-outputs
