@@ -35,11 +35,25 @@ jobs:
           path: .dart_tool/hooks_runner
           key: hooks-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pubspec.lock') }}
           # Any pubspec.lock change (new dep, resolution shift) still restores
-          # the previous Dawn build; hooks_runner re-runs the hook only if
-          # minigpu's own inputs changed. Without this, every lock change
-          # repays the full ~20-minute cold Dawn compile.
+          # the previous hook output; hooks_runner re-runs the hook only if
+          # minigpu's own inputs changed.
           restore-keys: |
             hooks-${{ runner.os }}-${{ runner.arch }}-
+      # The expensive artifact is Dawn's source+build tree at ~/dawn (minigpu's
+      # "system central path"), NOT .dart_tool/hooks_runner — verified on PR
+      # #11's first run: hook cache restored, Dawn still recompiled 25 min.
+      # minigpu's dawn.cmake find-existing-build step looks for webgpu_dawn.so
+      # on every non-Windows OS (never matches the macOS .dylib — upstream bug,
+      # tracked in PRIMORDIS_WEB-TASK-815), so the build path always runs; with
+      # this tree cached it is an incremental no-op (~1-2 min). Key = the Dawn
+      # commit minigpu pins (bump when minigpu's pin changes); the prefix
+      # fallback makes even a pin bump an incremental rebuild, not a cold one.
+      - uses: actions/cache@v4
+        with:
+          path: ~/dawn
+          key: dawn-${{ runner.os }}-${{ runner.arch }}-7bd3e6712c
+          restore-keys: |
+            dawn-${{ runner.os }}-${{ runner.arch }}-
       - run: flutter --version
       - run: flutter pub get
       - run: dart run build_runner build --delete-conflicting-outputs
