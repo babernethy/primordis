@@ -20,6 +20,7 @@ import 'dart:async';
 import 'dart:js_interop';
 
 import 'package:primordis/shared/constants/primordis_config.dart';
+import 'package:primordis/sim/backend_selector.dart';
 import 'package:primordis/sim/backends/web/buffer_marshalling.dart';
 import 'package:primordis/sim/backends/web/web_canvas_handle.dart';
 import 'package:primordis/sim/backends/web/webgpu_interop.dart';
@@ -56,7 +57,7 @@ class WebGpuUnavailableException implements Exception {
 /// animation loop; it advances only when its driver calls [step]. That directly
 /// satisfies the reduced-motion / pause requirement ([PRIMORDIS-ADR-006]): a
 /// paused driver simply stops calling [step]/[present] and the last frame holds.
-class WebWebGpuBackend implements SimBackend {
+class WebWebGpuBackend implements SimBackend, DeviceLossAware {
   /// Probes WebGPU availability without constructing the backend. Never throws —
   /// returns a [WebGpuSupport] the selector ([PRIMORDIS-TASK-007]) branches on.
   ///
@@ -116,12 +117,26 @@ class WebWebGpuBackend implements SimBackend {
   SimParams? _params;
   bool _disposed = false;
   bool _deviceLost = false;
+  final Completer<void> _deviceLostCompleter = Completer<void>();
 
   /// True once [init] has acquired a device and built the pipelines.
   bool get isInitialized => _device != null && !_disposed;
 
   /// True once [seed] has built the buffers/bind groups and the sim can step.
   bool get isSeeded => _computeBindGroup != null;
+
+  /// True once the device has fired its `lost` event after a successful
+  /// [init]. Selection ([PRIMORDIS-TASK-797]) reads this to demote a live
+  /// backend to the CPU-WASM tier rather than continuing to drive a dead GPU
+  /// connection; mirrors [MacosDawnBackend.deviceError].
+  @override
+  bool get deviceLost => _deviceLost;
+
+  /// Completes the first time the device is lost (see [DeviceLossAware]).
+  /// Never completes if [dispose] releases the device first (an intentional
+  /// teardown is not a device-loss event).
+  @override
+  Future<void> get onDeviceLost => _deviceLostCompleter.future;
 
   /// The owned canvas element, for the compositor (TASK-005) to stack/size
   /// (null before [seed]). Web-typed so the compositor needs no JS-interop
@@ -165,7 +180,12 @@ class WebWebGpuBackend implements SimBackend {
     }
     // Surface device-loss so an in-flight sim degrades instead of throwing on
     // every subsequent encode (the selector can re-probe / fall back).
-    unawaited(device.lost.toDart.then((_) => _deviceLost = true));
+    unawaited(
+      device.lost.toDart.then((_) {
+        _deviceLost = true;
+        if (!_deviceLostCompleter.isCompleted) _deviceLostCompleter.complete();
+      }),
+    );
 
     final source = await loadKernelSource();
     final module = device.createShaderModule(

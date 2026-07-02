@@ -24,8 +24,13 @@ publish_to: 'none'
 # sliders + reset/reseed + play/pause, their Riverpod providers, a per-frame
 # Ticker driving FrameLoop.tick, and prefers-reduced-motion / disableAnimations
 # start-paused wiring — PRIMORDIS_WEB-TASK-796 (orig. PRIMORDIS-TASK-006).
+# 0.9.0 adds the web WebGPU feature-detection + fallback switch: the injectable
+# selectWebBackend() hard-detect (probe -> requestAdapter -> requestDevice,
+# any failure demotes to CPU-WASM), the platform-neutral CapabilityTier model,
+# device-lost handling (both during init and mid-session), and the
+# activeBackendProvider selection seam — PRIMORDIS_WEB-TASK-797 (orig. 007).
 # Keep this in sync with PrimordisConfig.version. Semver per DGROUP-ADR-005.
-version: 0.8.0+8
+version: 0.9.0+9
 
 environment:
   sdk: ^3.11.4
