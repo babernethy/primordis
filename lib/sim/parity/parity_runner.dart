@@ -23,6 +23,14 @@ abstract interface class ParityBackend {
   /// Human-readable backend name (`cpu`, `wgsl-kernel`, `dawn`, `web-webgpu`).
   String get label;
 
+  /// The RNG seed this backend's [seed] loads its initial condition from.
+  ///
+  /// Owned by the backend (not passed to [runParity]) so the fingerprint always
+  /// records the seed the backend *actually* ran, never a mismatched value a
+  /// caller supplied by hand. Named [seedValue] to avoid colliding with the
+  /// [seed] loader method.
+  int get seedValue;
+
   /// Number of live particles (constant across a run).
   int get particleCount;
 
@@ -60,7 +68,6 @@ abstract interface class ParityBackend {
 /// how those values drive its physics.
 ParityFingerprint runParity({
   required ParityBackend backend,
-  required int seed,
   required MetricGrid grid,
   required int totalSteps,
   required Map<String, int> checkpoints,
@@ -114,7 +121,7 @@ ParityFingerprint runParity({
 
   return ParityFingerprint(
     label: backend.label,
-    seed: seed,
+    seed: backend.seedValue,
     particleCount: backend.particleCount,
     typeCount: backend.typeCount,
     attractionK: attractionK,

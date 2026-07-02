@@ -33,7 +33,6 @@ ParityFingerprint _loadReference(String fixture) {
 
 ParityFingerprint _runCpu(ParityHarnessConfig cfg) => runParity(
       backend: cfg.buildCpuBackend(),
-      seed: cfg.seed,
       grid: cfg.grid,
       totalSteps: cfg.totalSteps,
       checkpoints: cfg.checkpoints,
@@ -274,7 +273,6 @@ void main() {
       final cfg = ParityHarnessConfig.defaults();
       final observed = runParity(
         backend: _AllRepulsionCpuBackend(cfg),
-        seed: cfg.seed,
         grid: cfg.grid,
         totalSteps: cfg.totalSteps,
         checkpoints: cfg.checkpoints,
@@ -313,7 +311,6 @@ void main() {
       final cfg = ParityHarnessConfig.defaults();
       final observed = runParity(
         backend: _TransposedForceCpuBackend(cfg),
-        seed: cfg.seed,
         grid: cfg.grid,
         totalSteps: cfg.totalSteps,
         checkpoints: cfg.checkpoints,
@@ -358,6 +355,9 @@ class _AllRepulsionCpuBackend implements ParityBackend {
 
   @override
   String get label => 'cpu-all-repulsion';
+
+  @override
+  int get seedValue => _cfg.seed;
 
   @override
   int get particleCount => _cfg.particleCount;
@@ -415,6 +415,9 @@ class _TransposedForceCpuBackend implements ParityBackend {
 
   @override
   String get label => 'cpu-transposed';
+
+  @override
+  int get seedValue => _cfg.seed;
 
   @override
   int get particleCount => _cfg.particleCount;

@@ -35,6 +35,52 @@ void main() {
       expect(snap.types[1], 1);
     });
 
+    test('rejects buffers whose lengths disagree with particleCount', () {
+      // positions too short (should be 2 * particleCount).
+      expect(
+        () => RawSnapshot.fromJson(<String, dynamic>{
+          'particleCount': 2,
+          'positions': <double>[1, 2],
+          'velocities': <double>[0.1, 0.2, 0.3, 0.4],
+          'types': <int>[0, 1],
+        }),
+        throwsFormatException,
+      );
+      // types wrong length.
+      expect(
+        () => RawSnapshot.fromJson(<String, dynamic>{
+          'particleCount': 2,
+          'positions': <double>[1, 2, 3, 4],
+          'velocities': <double>[0.1, 0.2, 0.3, 0.4],
+          'types': <int>[0],
+        }),
+        throwsFormatException,
+      );
+    });
+
+    test('rejects snapshots that disagree on particleCount', () {
+      final grid = MetricGrid(worldWidth: 1080, worldHeight: 720, binSize: 96);
+      RawSnapshot mk(int n) => RawSnapshot(
+            positions: Float32List(n * 2),
+            velocities: Float32List(n * 2),
+            types: Int32List(n),
+            particleCount: n,
+          );
+      expect(
+        () => buildFingerprintFromSnapshots(
+          label: 'x',
+          seed: 42,
+          typeCount: 32,
+          attractionK: 32,
+          repulsionK: 32,
+          friction: 0.25,
+          grid: grid,
+          snapshots: <String, RawSnapshot>{'early': mk(100), 'steady': mk(90)},
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('builds a fingerprint from snapshots using the shared metric code', () {
       // Two hand-built checkpoints; the point is that FrameMetrics is computed
       // by the SAME Dart code that judges the CPU tier, so cross-backend

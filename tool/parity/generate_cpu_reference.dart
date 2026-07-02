@@ -26,7 +26,6 @@ import '../../test/parity/parity_harness_support.dart';
 
 ParityFingerprint _run(ParityHarnessConfig cfg) => runParity(
       backend: cfg.buildCpuBackend(),
-      seed: cfg.seed,
       grid: cfg.grid,
       totalSteps: cfg.totalSteps,
       checkpoints: cfg.checkpoints,

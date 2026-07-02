@@ -61,6 +61,9 @@ class CpuParityBackend implements ParityBackend {
   String get label => 'cpu';
 
   @override
+  int get seedValue => seedSpec.seed;
+
+  @override
   int get particleCount => seedSpec.particleCount;
 
   @override

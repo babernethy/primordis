@@ -36,7 +36,14 @@ class RawSnapshot {
   final int particleCount;
 
   /// Parses one snapshot from its JSON form (flat number arrays).
+  ///
+  /// Validates the buffer lengths against `particleCount` up front — positions
+  /// and velocities must each be `2 * particleCount`, types must be
+  /// `particleCount` — so a malformed export fails fast here with a clear
+  /// message rather than surfacing later as a `RangeError` or, worse, metrics
+  /// silently computed from truncated data.
   factory RawSnapshot.fromJson(Map<String, dynamic> json) {
+    final particleCount = (json['particleCount'] as num).toInt();
     final pos = (json['positions'] as List<dynamic>)
         .map((e) => (e as num).toDouble())
         .toList(growable: false);
@@ -46,11 +53,27 @@ class RawSnapshot {
     final typ = (json['types'] as List<dynamic>)
         .map((e) => (e as num).toInt())
         .toList(growable: false);
+    if (particleCount < 0) {
+      throw FormatException('particleCount must be non-negative, '
+          'got $particleCount');
+    }
+    if (pos.length != particleCount * 2) {
+      throw FormatException('positions length ${pos.length} != '
+          '2 * particleCount ${particleCount * 2}');
+    }
+    if (vel.length != particleCount * 2) {
+      throw FormatException('velocities length ${vel.length} != '
+          '2 * particleCount ${particleCount * 2}');
+    }
+    if (typ.length != particleCount) {
+      throw FormatException('types length ${typ.length} != '
+          'particleCount $particleCount');
+    }
     return RawSnapshot(
       positions: Float32List.fromList(pos),
       velocities: Float32List.fromList(vel),
       types: Int32List.fromList(typ),
-      particleCount: (json['particleCount'] as num).toInt(),
+      particleCount: particleCount,
     );
   }
 }
@@ -76,6 +99,17 @@ ParityFingerprint buildFingerprintFromSnapshots({
     throw ArgumentError('at least one snapshot is required');
   }
   final particleCount = snapshots.values.first.particleCount;
+  // All checkpoints must agree on the population — an exporter that writes
+  // inconsistent counts would otherwise yield a fingerprint with a misleading
+  // particleCount and unpredictable comparisons. Fail fast instead.
+  for (final entry in snapshots.entries) {
+    if (entry.value.particleCount != particleCount) {
+      throw ArgumentError(
+        'snapshot "${entry.key}" particleCount ${entry.value.particleCount} '
+        '!= first snapshot particleCount $particleCount',
+      );
+    }
+  }
   final checkpoints = <String, FrameMetrics>{
     for (final entry in snapshots.entries)
       entry.key: FrameMetrics.from(
